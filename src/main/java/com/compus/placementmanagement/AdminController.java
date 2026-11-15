@@ -1,307 +1,161 @@
-package com.compus.placementmanagement;
 
+package com.compus.placementmanagement.controller;
+
+import com.compus.placementmanagement.Admin;
+import com.compus.placementmanagement.AdminRepository;
+import com.compus.placementmanagement.StudentRepository;
+import com.compus.placementmanagement.CompanyRepository;
+import com.compus.placementmanagement.JobRepository;
+import com.compus.placementmanagement.ApplicationRepository;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/admin")
+@CrossOrigin(origins = {
+        "http://localhost:5173",
+        "https://campus-placement-management.netlify.app"
+})
 public class AdminController {
 
-    private final AdminRepository adminRepository;
     private final StudentRepository studentRepository;
     private final CompanyRepository companyRepository;
     private final JobRepository jobRepository;
     private final ApplicationRepository applicationRepository;
+    private final AdminRepository adminRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @Value("${ADMIN_BOOTSTRAP_SECRET:}")
+    private String bootstrapSecret;
 
     public AdminController(
-            AdminRepository adminRepository,
             StudentRepository studentRepository,
             CompanyRepository companyRepository,
             JobRepository jobRepository,
-            ApplicationRepository applicationRepository) {
+            ApplicationRepository applicationRepository,
+            AdminRepository adminRepository,
+            PasswordEncoder passwordEncoder) {
 
-        this.adminRepository = adminRepository;
         this.studentRepository = studentRepository;
         this.companyRepository = companyRepository;
         this.jobRepository = jobRepository;
         this.applicationRepository = applicationRepository;
+        this.adminRepository = adminRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
+    // CREATE FIRST ADMIN
+    @PostMapping("/create")
+    public ResponseEntity<Map<String, String>> createAdmin(
+            @RequestBody Admin admin,
+            @RequestHeader(
+                    value = "X-ADMIN-BOOTSTRAP-SECRET",
+                    required = false
+            ) String providedSecret) {
 
-    // ================= DASHBOARD =================
+        Map<String, String> response = new HashMap<>();
 
-    @GetMapping("/dashboard")
-    public Map<String, Object> getDashboard() {
+        // Verify bootstrap secret
+        if (bootstrapSecret == null || bootstrapSecret.isBlank()
+                || providedSecret == null
+                || !MessageDigest.isEqual(
+                bootstrapSecret.getBytes(StandardCharsets.UTF_8),
+                providedSecret.getBytes(StandardCharsets.UTF_8))) {
 
-        Map<String, Object> dashboard =
-                new HashMap<>();
+            response.put("message", "Invalid bootstrap secret");
 
-        dashboard.put(
-                "totalStudents",
-                studentRepository.count()
-        );
-
-        dashboard.put(
-                "totalCompanies",
-                companyRepository.count()
-        );
-
-        dashboard.put(
-                "totalJobs",
-                jobRepository.count()
-        );
-
-        dashboard.put(
-                "totalApplications",
-                applicationRepository.count()
-        );
-
-        return dashboard;
-    }
-
-
-    // ================= STATISTICS =================
-
-    @GetMapping("/statistics")
-    public Map<String, Object> getStatistics() {
-
-        Map<String, Object> statistics =
-                new HashMap<>();
-
-        long totalStudents =
-                studentRepository.count();
-
-        long totalApplications =
-                applicationRepository.count();
-
-
-        long shortlisted =
-                applicationRepository
-                        .findAll()
-                        .stream()
-                        .filter(application ->
-                                "Shortlisted".equalsIgnoreCase(
-                                        application.getStatus()
-                                )
-                        )
-                        .count();
-
-
-        long interview =
-                applicationRepository
-                        .findAll()
-                        .stream()
-                        .filter(application ->
-                                "Interview".equalsIgnoreCase(
-                                        application.getStatus()
-                                )
-                        )
-                        .count();
-
-
-        long selected =
-                applicationRepository
-                        .findAll()
-                        .stream()
-                        .filter(application ->
-                                "Selected".equalsIgnoreCase(
-                                        application.getStatus()
-                                )
-                        )
-                        .count();
-
-
-        long rejected =
-                applicationRepository
-                        .findAll()
-                        .stream()
-                        .filter(application ->
-                                "Rejected".equalsIgnoreCase(
-                                        application.getStatus()
-                                )
-                        )
-                        .count();
-
-
-        // ================= PLACEMENT PERCENTAGE =================
-
-        double placementPercentage = 0.0;
-
-        if (totalStudents > 0) {
-
-            placementPercentage =
-                    ((double) selected /
-                            totalStudents) * 100;
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(response);
         }
 
+        // Allow only the first admin
+        if (adminRepository.count() > 0) {
 
-        statistics.put(
-                "totalStudents",
-                totalStudents
-        );
+            response.put("message", "Admin account already exists");
 
-        statistics.put(
-                "totalCompanies",
-                companyRepository.count()
-        );
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(response);
+        }
 
-        statistics.put(
-                "totalJobs",
-                jobRepository.count()
-        );
+        // Validate input
+        if (admin.getName() == null || admin.getName().isBlank()
+                || admin.getEmail() == null || admin.getEmail().isBlank()
+                || admin.getPassword() == null || admin.getPassword().isBlank()) {
 
-        statistics.put(
-                "totalApplications",
-                totalApplications
-        );
+            response.put("message",
+                    "Name, email and password are required");
 
-        statistics.put(
-                "shortlistedApplications",
-                shortlisted
-        );
+            return ResponseEntity.badRequest().body(response);
+        }
 
-        statistics.put(
-                "interviewApplications",
-                interview
-        );
+        // Normalize email
+        admin.setEmail(admin.getEmail().trim().toLowerCase());
 
-        statistics.put(
-                "selectedApplications",
-                selected
-        );
+        // Check duplicate email
+        if (adminRepository.findByEmail(admin.getEmail()).isPresent()) {
 
-        statistics.put(
-                "rejectedApplications",
-                rejected
-        );
+            response.put("message", "Email already exists");
 
-        statistics.put(
-                "placementPercentage",
-                Math.round(
-                        placementPercentage * 100.0
-                ) / 100.0
-        );
+            return ResponseEntity.badRequest().body(response);
+        }
 
+        // Encrypt password
+        admin.setPassword(passwordEncoder.encode(admin.getPassword()));
 
-        return statistics;
+        // Set role
+        admin.setRole("ADMIN");
+
+        adminRepository.save(admin);
+
+        response.put("message", "Admin created successfully");
+
+        return ResponseEntity.ok(response);
     }
 
+    // ADMIN DASHBOARD STATISTICS
+    @GetMapping("/dashboard")
+    public Map<String, Long> dashboard() {
 
-    // ================= STUDENTS =================
+        Map<String, Long> stats = new HashMap<>();
 
+        stats.put("students", studentRepository.count());
+        stats.put("companies", companyRepository.count());
+        stats.put("jobs", jobRepository.count());
+        stats.put("applications", applicationRepository.count());
+
+        return stats;
+    }
+
+    // GET ALL STUDENTS
     @GetMapping("/students")
-    public List<Student> getAllStudents() {
-
+    public Object getAllStudents() {
         return studentRepository.findAll();
     }
 
-
-    @DeleteMapping("/students/{id}")
-    public String deleteStudent(
-            @PathVariable Long id) {
-
-        Student student =
-                studentRepository.findById(id)
-                        .orElse(null);
-
-        if (student == null) {
-            return "Student not found";
-        }
-
-        long applicationCount =
-                applicationRepository
-                        .countByStudentId(id);
-
-        if (applicationCount > 0) {
-
-            return "Cannot delete student because the student has existing applications";
-        }
-
-        studentRepository.deleteById(id);
-
-        return "Student deleted successfully";
-    }
-
-
-    // ================= COMPANIES =================
-
+    // GET ALL COMPANIES
     @GetMapping("/companies")
-    public List<Company> getAllCompanies() {
-
+    public Object getAllCompanies() {
         return companyRepository.findAll();
     }
 
-
-    @DeleteMapping("/companies/{id}")
-    public String deleteCompany(
-            @PathVariable Long id) {
-
-        Company company =
-                companyRepository.findById(id)
-                        .orElse(null);
-
-        if (company == null) {
-            return "Company not found";
-        }
-
-        long jobCount =
-                jobRepository.countByCompanyId(id);
-
-        if (jobCount > 0) {
-
-            return "Cannot delete company because the company has existing jobs";
-        }
-
-        companyRepository.deleteById(id);
-
-        return "Company deleted successfully";
-    }
-
-
-    // ================= JOBS =================
-
+    // GET ALL JOBS
     @GetMapping("/jobs")
-    public List<Job> getAllJobs() {
-
+    public Object getAllJobs() {
         return jobRepository.findAll();
     }
 
-
-    @DeleteMapping("/jobs/{id}")
-    public String deleteJob(
-            @PathVariable Long id) {
-
-        Job job =
-                jobRepository.findById(id)
-                        .orElse(null);
-
-        if (job == null) {
-            return "Job not found";
-        }
-
-        long applicationCount =
-                applicationRepository
-                        .countByJobId(id);
-
-        if (applicationCount > 0) {
-
-            return "Cannot delete job because students have already applied";
-        }
-
-        jobRepository.deleteById(id);
-
-        return "Job deleted successfully";
-    }
-
-
-    // ================= APPLICATIONS =================
-
+    // GET ALL APPLICATIONS
     @GetMapping("/applications")
-    public List<Application> getAllApplications() {
-
+    public Object getAllApplications() {
         return applicationRepository.findAll();
     }
 }

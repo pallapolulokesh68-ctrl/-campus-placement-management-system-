@@ -21,8 +21,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(
-            JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
@@ -34,40 +33,24 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
-        CorsConfiguration configuration =
-                new CorsConfiguration();
+        CorsConfiguration configuration = new CorsConfiguration();
 
-        // Allow local frontend and deployed Netlify frontend
-        configuration.setAllowedOrigins(
-                List.of(
-                        "http://localhost:5173",
-                        "https://campus-placement-management.netlify.app"
-                )
-        );
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:5173",
+                "https://campus-placement-management.netlify.app"
+        ));
 
-        configuration.setAllowedMethods(
-                List.of(
-                        "GET",
-                        "POST",
-                        "PUT",
-                        "DELETE",
-                        "OPTIONS"
-                )
-        );
+        configuration.setAllowedMethods(List.of(
+                "GET", "POST", "PUT", "DELETE", "OPTIONS"
+        ));
 
-        configuration.setAllowedHeaders(
-                List.of("*")
-        );
-
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
 
-        source.registerCorsConfiguration(
-                "/**",
-                configuration
-        );
+        source.registerCorsConfiguration("/**", configuration);
 
         return source;
     }
@@ -78,65 +61,47 @@ public class SecurityConfig {
 
         http
                 .cors(cors -> {})
-
                 .csrf(csrf -> csrf.disable())
-
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
                         )
                 )
-
                 .authorizeHttpRequests(auth -> {
 
-                    // PUBLIC ENDPOINTS
-
+                    // PUBLIC LOGIN
                     auth.requestMatchers(
                             "/auth/login",
                             "/student-auth/login",
-                            "/admin-auth/login",
-                            "/admin/create"
+                            "/admin-auth/login"
                     ).permitAll();
 
+                    // STUDENT REGISTRATION
                     auth.requestMatchers(
                             HttpMethod.POST,
                             "/students/register"
                     ).permitAll();
 
+                    // COMPANY REGISTRATION
                     auth.requestMatchers(
                             HttpMethod.POST,
                             "/companies/register"
                     ).permitAll();
 
-                    // ADMIN ENDPOINTS
-
-                    auth.requestMatchers(
-                            HttpMethod.GET,
-                            "/admin/**"
-                    ).hasRole("ADMIN");
-
+                    // TEMPORARY FIRST ADMIN CREATION
                     auth.requestMatchers(
                             HttpMethod.POST,
-                            "/admin/**"
-                    ).hasRole("ADMIN");
+                            "/admin/create"
+                    ).permitAll();
 
+                    // ADMIN - JWT REQUIRED
                     auth.requestMatchers(
-                            HttpMethod.PUT,
-                            "/admin/**"
-                    ).hasRole("ADMIN");
-
-                    auth.requestMatchers(
-                            HttpMethod.DELETE,
                             "/admin/**"
                     ).hasRole("ADMIN");
 
                     // STUDENT
-
                     auth.requestMatchers(
-                            "/students/**"
-                    ).hasRole("STUDENT");
-
-                    auth.requestMatchers(
+                            "/students/**",
                             "/eligibility/**"
                     ).hasRole("STUDENT");
 
@@ -146,31 +111,21 @@ public class SecurityConfig {
                     ).hasRole("STUDENT");
 
                     // RESUME VIEW
-
                     auth.requestMatchers(
                             HttpMethod.GET,
                             "/resume/view/**"
                     ).hasRole("COMPANY");
 
                     // JOBS
-
                     auth.requestMatchers(
                             HttpMethod.GET,
                             "/jobs"
-                    ).hasAnyRole(
-                            "STUDENT",
-                            "COMPANY",
-                            "ADMIN"
-                    );
+                    ).hasAnyRole("STUDENT", "COMPANY", "ADMIN");
 
                     auth.requestMatchers(
                             HttpMethod.GET,
                             "/jobs/*"
-                    ).hasAnyRole(
-                            "STUDENT",
-                            "COMPANY",
-                            "ADMIN"
-                    );
+                    ).hasAnyRole("STUDENT", "COMPANY", "ADMIN");
 
                     auth.requestMatchers(
                             HttpMethod.GET,
@@ -193,7 +148,6 @@ public class SecurityConfig {
                     ).hasRole("COMPANY");
 
                     // APPLICATIONS
-
                     auth.requestMatchers(
                             HttpMethod.POST,
                             "/applications"
@@ -216,11 +170,7 @@ public class SecurityConfig {
 
                     auth.requestMatchers(
                             HttpMethod.GET,
-                            "/applications"
-                    ).hasRole("ADMIN");
-
-                    auth.requestMatchers(
-                            HttpMethod.GET,
+                            "/applications",
                             "/applications/*"
                     ).hasRole("ADMIN");
 
@@ -230,14 +180,10 @@ public class SecurityConfig {
                     ).hasRole("ADMIN");
 
                     // COMPANY
-
                     auth.requestMatchers(
                             HttpMethod.GET,
                             "/companies/**"
-                    ).hasAnyRole(
-                            "COMPANY",
-                            "ADMIN"
-                    );
+                    ).hasAnyRole("COMPANY", "ADMIN");
 
                     auth.requestMatchers(
                             HttpMethod.POST,
@@ -254,8 +200,7 @@ public class SecurityConfig {
                             "/companies/**"
                     ).hasRole("COMPANY");
 
-                    // EVERYTHING ELSE
-
+                    // ALL OTHER REQUESTS
                     auth.anyRequest().authenticated();
                 });
 

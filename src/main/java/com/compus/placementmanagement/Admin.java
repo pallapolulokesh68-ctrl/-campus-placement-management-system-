@@ -1,7 +1,11 @@
+
 package com.compus.placementmanagement;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.persistence.*;
 
 @Entity
 public class Admin {
@@ -18,6 +22,9 @@ public class Admin {
     private String password;
 
     private String role;
+
+    public Admin() {
+    }
 
     public Long getId() {
         return id;
