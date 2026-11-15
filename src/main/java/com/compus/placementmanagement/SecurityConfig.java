@@ -1,3 +1,4 @@
+
 package com.compus.placementmanagement;
 
 import org.springframework.context.annotation.Bean;
@@ -25,12 +26,10 @@ public class SecurityConfig {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
-
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -38,8 +37,12 @@ public class SecurityConfig {
         CorsConfiguration configuration =
                 new CorsConfiguration();
 
+        // Allow local frontend and deployed Netlify frontend
         configuration.setAllowedOrigins(
-                List.of("http://localhost:5173")
+                List.of(
+                        "http://localhost:5173",
+                        "https://campus-placement-management.netlify.app"
+                )
         );
 
         configuration.setAllowedMethods(
@@ -69,7 +72,6 @@ public class SecurityConfig {
         return source;
     }
 
-
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http) throws Exception {
@@ -87,9 +89,7 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> {
 
-                    // =================================================
                     // PUBLIC ENDPOINTS
-                    // =================================================
 
                     auth.requestMatchers(
                             "/auth/login",
@@ -98,80 +98,61 @@ public class SecurityConfig {
                             "/admin/create"
                     ).permitAll();
 
-
                     auth.requestMatchers(
                             HttpMethod.POST,
                             "/students/register"
                     ).permitAll();
-
 
                     auth.requestMatchers(
                             HttpMethod.POST,
                             "/companies/register"
                     ).permitAll();
 
-
-                    // =================================================
                     // ADMIN ENDPOINTS
-                    // =================================================
 
                     auth.requestMatchers(
                             HttpMethod.GET,
                             "/admin/**"
                     ).hasRole("ADMIN");
 
-
                     auth.requestMatchers(
                             HttpMethod.POST,
                             "/admin/**"
                     ).hasRole("ADMIN");
-
 
                     auth.requestMatchers(
                             HttpMethod.PUT,
                             "/admin/**"
                     ).hasRole("ADMIN");
 
-
                     auth.requestMatchers(
                             HttpMethod.DELETE,
                             "/admin/**"
                     ).hasRole("ADMIN");
 
-
-                    // =================================================
                     // STUDENT
-                    // =================================================
 
                     auth.requestMatchers(
                             "/students/**"
                     ).hasRole("STUDENT");
 
-
                     auth.requestMatchers(
                             "/eligibility/**"
                     ).hasRole("STUDENT");
-
 
                     auth.requestMatchers(
                             HttpMethod.POST,
                             "/resume/upload/**"
                     ).hasRole("STUDENT");
 
-
-                    // =================================================
                     // RESUME VIEW
-                    // =================================================
 
                     auth.requestMatchers(
                             HttpMethod.GET,
                             "/resume/view/**"
                     ).hasRole("COMPANY");
 
-
-                    // =================================================
                     // JOBS
-                    // =================================================
 
                     auth.requestMatchers(
                             HttpMethod.GET,
@@ -181,7 +162,6 @@ public class SecurityConfig {
                             "COMPANY",
                             "ADMIN"
                     );
-
 
                     auth.requestMatchers(
                             HttpMethod.GET,
@@ -192,80 +172,64 @@ public class SecurityConfig {
                             "ADMIN"
                     );
 
-
                     auth.requestMatchers(
                             HttpMethod.GET,
                             "/jobs/company/**"
                     ).hasRole("COMPANY");
-
 
                     auth.requestMatchers(
                             HttpMethod.POST,
                             "/jobs"
                     ).hasRole("COMPANY");
 
-
                     auth.requestMatchers(
                             HttpMethod.PUT,
                             "/jobs/**"
                     ).hasRole("COMPANY");
-
 
                     auth.requestMatchers(
                             HttpMethod.DELETE,
                             "/jobs/**"
                     ).hasRole("COMPANY");
 
-
-                    // =================================================
                     // APPLICATIONS
-                    // =================================================
 
                     auth.requestMatchers(
                             HttpMethod.POST,
                             "/applications"
                     ).hasRole("STUDENT");
 
-
                     auth.requestMatchers(
                             HttpMethod.GET,
                             "/applications/student/**"
                     ).hasRole("STUDENT");
-
 
                     auth.requestMatchers(
                             HttpMethod.GET,
                             "/applications/job/**"
                     ).hasRole("COMPANY");
 
-
                     auth.requestMatchers(
                             HttpMethod.PUT,
                             "/applications/**"
                     ).hasRole("COMPANY");
-
 
                     auth.requestMatchers(
                             HttpMethod.GET,
                             "/applications"
                     ).hasRole("ADMIN");
 
-
                     auth.requestMatchers(
                             HttpMethod.GET,
                             "/applications/*"
                     ).hasRole("ADMIN");
-
 
                     auth.requestMatchers(
                             HttpMethod.DELETE,
                             "/applications/**"
                     ).hasRole("ADMIN");
 
-
-                    // =================================================
                     // COMPANY
-                    // =================================================
 
                     auth.requestMatchers(
                             HttpMethod.GET,
@@ -275,38 +239,30 @@ public class SecurityConfig {
                             "ADMIN"
                     );
 
-
                     auth.requestMatchers(
                             HttpMethod.POST,
                             "/companies/**"
                     ).hasRole("COMPANY");
-
 
                     auth.requestMatchers(
                             HttpMethod.PUT,
                             "/companies/**"
                     ).hasRole("COMPANY");
 
-
                     auth.requestMatchers(
                             HttpMethod.DELETE,
                             "/companies/**"
                     ).hasRole("COMPANY");
 
-
-                    // =================================================
                     // EVERYTHING ELSE
-                    // =================================================
 
                     auth.anyRequest().authenticated();
                 });
-
 
         http.addFilterBefore(
                 jwtAuthenticationFilter,
                 UsernamePasswordAuthenticationFilter.class
         );
-
 
         return http.build();
     }
