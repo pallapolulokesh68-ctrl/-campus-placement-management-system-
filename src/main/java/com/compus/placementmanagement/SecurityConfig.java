@@ -88,12 +88,6 @@ public class SecurityConfig {
                             "/companies/register"
                     ).permitAll();
 
-                    // TEMPORARY FIRST ADMIN CREATION
-                    auth.requestMatchers(
-                            HttpMethod.POST,
-                            "/admin/create"
-                    ).permitAll();
-
                     // ADMIN - JWT REQUIRED
                     auth.requestMatchers(
                             "/admin/**"
